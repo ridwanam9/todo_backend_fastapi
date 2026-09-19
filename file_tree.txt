@@ -1,0 +1,44 @@
+todo-api/
+│
+├── app/
+│   ├── __init__.py
+│   ├── main.py
+│   │
+│   ├── core/
+│   │   ├── config.py
+│   │   ├── security.py
+│   │   └── database.py
+│   │
+│   ├── models/
+│   │   ├── user.py
+│   │   └── todo.py
+│   │
+│   ├── schemas/
+│   │   ├── user.py
+│   │   └── todo.py
+│   │
+│   ├── repositories/
+│   │   ├── user.py
+│   │   └── todo.py
+│   │
+│   ├── services/
+│   │   ├── auth.py
+│   │   └── todo.py
+│   │
+│   └── routers/
+│       ├── auth.py
+│       ├── users.py
+│       └── todos.py
+│
+├── tests/
+│   ├── test_auth.py
+│   └── test_todos.py
+│
+├── alembic/
+│
+├── .env
+├── .gitignore
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+└── README.md
