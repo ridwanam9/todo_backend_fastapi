@@ -64,7 +64,7 @@ def get_todo(todo_id: int):
         if todo["id"] == todo_id:
             return todo
 
-    return {"Message: Todo not found"}
+    return {"message: Todo not found"}
 
 # update todo
 @app.put("/todos/{todo_id}")
@@ -82,7 +82,7 @@ def update_todo(todo_id : int, todo: Todo):
             todos[index] = updated_todo
             return updated_todo
 
-    return {"Message: Todo not found"}
+    return {"message: Todo not found"}
 
 # delete todo
 @app.delete("/todos/{todo_id}")
@@ -92,4 +92,15 @@ def delete_todo(todo_id: int):
             deleted_todo = todos.pop(index)
             return deleted_todo
 
-    return {"Message: Todo not found"}
+    return {"message: Todo not found"}
+
+
+# update todo status (complete)
+@app.put("/todos/{todo_id}/complete")
+def complete_todo(todo_id : int):
+    for todo in todos:
+        if todo["id"] == todo_id:
+            todo["completed"] = True
+            return todo
+
+    return {"message: Todo not found"}
