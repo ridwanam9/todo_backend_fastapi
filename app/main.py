@@ -1,13 +1,25 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 app = FastAPI()
 
 # Membuat model
-class Todo(BaseModel):
+class TodoCreate(BaseModel):
     title: str
     description: str
-    completed: bool = False
+
+
+class TodoUpdate(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    completed: bool | None = None
+
+
+class TodoResponse(BaseModel):
+    id: int
+    title: str
+    description: str
+    completed: bool
 
 # penyimpanan sementara menggunakan python sebelum ke database
 todos = []
@@ -34,15 +46,15 @@ def about():
 
 
 # create todo
-@app.post("/todos")
-def create_todo(todo: Todo):
+@app.post("/todos", response_model=TodoResponse, status_code=201)
+def create_todo(todo: TodoCreate):
     global next_id
 
     new_todo = {
         "id": next_id,
         "title": todo.title,
         "description": todo.description,
-        "completed": todo.completed
+        "completed": False
     }
 
     todos.append(new_todo)
@@ -50,57 +62,68 @@ def create_todo(todo: Todo):
 
     return new_todo
 
-
 # get todos
-@app.get("/todos")
+@app.get("/todos", response_model=list[TodoResponse])
 def get_todos():
     return todos
 
 
 # get todo by id
-@app.get("/todos/{todo_id}")
+@app.get("/todos/{todo_id}", response_model=TodoResponse)
 def get_todo(todo_id: int):
     for todo in todos:
         if todo["id"] == todo_id:
             return todo
 
-    return {"message: Todo not found"}
+    raise HTTPException(
+        status_code=404,
+        detail="Todo not found"
+    )
+
 
 # update todo
-@app.put("/todos/{todo_id}")
-def update_todo(todo_id : int, todo: Todo):
-    for index, existing_todo in enumerate(todos):
+@app.put("/todos/{todo_id}", response_model=TodoResponse)
+def update_todo(todo_id: int, todo: TodoCreate):
+    for existing_todo in todos:
+        if existing_todo["id"] == todo_id:
+            existing_todo["title"] = todo.title
+            existing_todo["description"] = todo.description
+
+            return existing_todo
+
+    raise HTTPException(
+        status_code=404,
+        detail="Todo not found"
+    )
+
+# update todo status (complete)
+@app.patch("/todos/{todo_id}", response_model=TodoResponse)
+def update_todo_partial(todo_id: int, todo: TodoUpdate):
+
+    for existing_todo in todos:
         if existing_todo["id"] == todo_id:
 
-            updated_todo = {
-                "id": todo_id,
-                "title": todo.title,
-                "description": todo.description,
-                "completed": todo.completed
-            }
+            update_data = todo.model_dump(exclude_unset=True)
 
-            todos[index] = updated_todo
-            return updated_todo
+            existing_todo.update(update_data)
 
-    return {"message: Todo not found"}
+            return existing_todo
+
+    raise HTTPException(
+        status_code=404,
+        detail="Todo not found"
+    )
+
 
 # delete todo
-@app.delete("/todos/{todo_id}")
+@app.delete("/todos/{todo_id}", status_code=204)
 def delete_todo(todo_id: int):
     for index, todo in enumerate(todos):
         if todo["id"] == todo_id:
-            deleted_todo = todos.pop(index)
-            return deleted_todo
+            todos.pop(index)
+            return
 
-    return {"message: Todo not found"}
-
-
-# update todo status (complete)
-@app.put("/todos/{todo_id}/complete")
-def complete_todo(todo_id : int):
-    for todo in todos:
-        if todo["id"] == todo_id:
-            todo["completed"] = True
-            return todo
-
-    return {"message: Todo not found"}
+    raise HTTPException(
+        status_code=404,
+        detail="Todo not found"
+    )
