@@ -1,5 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.models.todo import Todo
 
@@ -18,25 +19,42 @@ def create(db: Session, title: str, description: str):
         title = title,
         description = description
     )
-    db.add(todo)
-    db.commit()
-    db.refresh(todo)
 
-    return todo
+    try:
+        db.add(todo)
+        db.commit()
+        db.refresh(todo)
+
+        return todo
+    
+    except SQLAlchemyError:
+        db.rollback()
+        raise
+
 
 def update(db: Session, todo: Todo, update_data: dict):
-    for field, value in update_data.items():
-        setattr(todo, field, value)
-    
-    db.commit()
-    db.refresh(todo)
+    try:
+        for field, value in update_data.items():
+            setattr(todo, field, value)
+        
+        db.commit()
+        db.refresh(todo)
 
-    return todo
+        return todo
+    
+    except SQLAlchemyError:
+        db.rollback()
+        raise
+
 
 def delete(db: Session, todo: Todo):
+    try:
+        db.delete(todo)
+        db.commit()
     
-    db.delete(todo)
-    db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise
 
 
 
