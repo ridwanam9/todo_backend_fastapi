@@ -1,6 +1,8 @@
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.main import app
+from app.repositories import todo as todo_repository
 
 
 # client = TestClient(app)
@@ -152,5 +154,103 @@ def test_delete_todo_not_found(client):
         "detail" : "Todo not found"
     }
 
+# create todo without title
+def test_create_todo_missing_title(client):
+    response = client.post(
+        "/todos",
+        json={
+            "description":"Todo tanpa title"
+        }
+    )
 
+    assert response.status_code == 422
+
+# create todo without description
+def test_create_todo_missing_title(client):
+    response = client.post(
+        "/todos",
+        json={
+            "title":"Todo tanpa description"
+        }
+    )
+
+    assert response.status_code == 422
+
+
+# test patch todo empty body
+def test_update_todo_empty_body(client):
+    create_response = client.post(
+        "/todos", 
+        json = {
+
+            "title": "Todo test",
+            "description": "Testing empty patch"
+        }
+    )
+
+    todo_id = create_response.json()["id"]
     
+    response = client.patch(
+        f"/todos/{todo_id}", 
+        json = {}
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["title"] == "Todo test"
+    assert data["description"] == "Testing empty patch"
+    assert data["completed"] is False
+
+
+# test patch todo wrong data type
+def test_update_todo_invalid_completed_type(client):
+    create_response = client.post(
+        "/todos", 
+        json = {
+
+            "title": "Todo test",
+            "description": "Testing validation"
+        }
+    )
+
+    todo_id = create_response.json()["id"]
+    
+    response = client.patch(
+        f"/todos/{todo_id}", 
+        json = {
+            "completed":"not-a-boolean"
+        }
+    )
+
+    assert response.status_code == 422
+
+# test rollback
+def test_create_todo_rollback(db_session, monkeypatch):
+    def fake_commit():
+        raise SQLAlchemyError("Simulated database error")
+
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        fake_commit
+    )
+
+    try:
+        todo_repository.create(
+            db=db_session,
+            title = "Rollback Test",
+            description="Testing Rollback"
+        )
+    except SQLAlchemyError:
+        pass
+
+    todos = todo_repository.get_all(
+        db_session
+    )
+
+    assert todos == []
+
+
+
+
