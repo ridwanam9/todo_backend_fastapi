@@ -3,10 +3,10 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 
-client = TestClient(app)
+# client = TestClient(app)
 
 # cek health
-def test_health_check():
+def test_health_check(client):
 
     response = client.get("/health")
 
@@ -16,7 +16,7 @@ def test_health_check():
     }
 
 # create todos
-def test_create_todo():
+def test_create_todo(client):
     response = client.post(
         "/todos", 
         json = {
@@ -35,7 +35,7 @@ def test_create_todo():
     assert "id" in data
 
 # get todos
-def test_get_todos():
+def test_get_todos(client):
     response = client.get("/todos")
 
     assert response.status_code == 200
@@ -44,7 +44,7 @@ def test_get_todos():
 
 
 # get todo by id
-def test_get_todo():
+def test_get_todo(client):
     create_response = client.post(
         "/todos", 
         json = {
@@ -65,7 +65,7 @@ def test_get_todo():
 
 
 # test get todo not found
-def test_get_todo_not_found():
+def test_get_todo_not_found(client):
     response = client.get("/todos/999999")
 
     assert response.status_code == 404
@@ -75,7 +75,7 @@ def test_get_todo_not_found():
 
 
 # test patch todo
-def test_update_todo():
+def test_update_todo(client):
     create_response = client.post(
         "/todos", 
         json = {
@@ -105,7 +105,7 @@ def test_update_todo():
 
 
 # test delete todo
-def test_delete_todo():
+def test_delete_todo(client):
     create_response = client.post(
         "/todos", 
         json = {
@@ -128,7 +128,7 @@ def test_delete_todo():
     
 
 # test update todo not found
-def test_update_todo_not_found():
+def test_update_todo_not_found(client):
     response = client.patch(
         "/todos/999999",
         json={
@@ -142,7 +142,7 @@ def test_update_todo_not_found():
     }
 
 # test delete todo not found
-def test_delete_todo_not_found():
+def test_delete_todo_not_found(client):
     response = client.delete(
         "/todos/999999"
     )
