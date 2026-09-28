@@ -225,7 +225,7 @@ def test_update_todo_invalid_completed_type(client):
 
     assert response.status_code == 422
 
-# test rollback
+# test create todo rollback
 def test_create_todo_rollback(db_session, monkeypatch):
     def fake_commit():
         raise SQLAlchemyError("Simulated database error")
@@ -251,6 +251,75 @@ def test_create_todo_rollback(db_session, monkeypatch):
 
     assert todos == []
 
+# test update todo rollback
+def test_update_todo_rollback(db_session, monkeypatch):
+    todo = todo_repository.create(
+        db=db_session,
+        title="Todo sebelum update",
+        description="Original"
+    )
 
+    def fake_commit():
+        raise SQLAlchemyError("Simulated database error")
 
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        fake_commit
+    )
+
+    try:
+        todo_repository.update(
+            db=db_session,
+            todo=todo,
+            update_data={
+                "title": "Title baru"
+            }
+        )
+    except SQLAlchemyError:
+        pass
+
+    db_session.rollback()
+
+    todo_from_db = todo_repository.get_by_id(
+        db=db_session,
+        todo_id=todo.id
+    )
+
+    assert todo_from_db.title == "Todo sebelum update"
+
+# test delete todo rollback
+def test_delete_todo_rollback(db_session, monkeypatch):
+    todo = todo_repository.create(
+        db=db_session,
+        title="Todo yang tidak boleh terhapus",
+        description="Testing rollback"
+    )
+
+    def fake_commit():
+        raise SQLAlchemyError("Simulated database error")
+
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        fake_commit
+    )
+
+    try:
+        todo_repository.delete(
+            db=db_session,
+            todo=todo
+        )
+    except SQLAlchemyError:
+        pass
+
+    db_session.rollback()
+
+    todo_from_db = todo_repository.get_by_id(
+        db=db_session,
+        todo_id=todo.id
+    )
+
+    assert todo_from_db is not None
+    assert todo_from_db.title == "Todo yang tidak boleh terhapus"
 
