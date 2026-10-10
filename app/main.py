@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from app.routers.todos import router as todos_router
+from app.routers.auth import router as auth_router
 
 app = FastAPI()
 
@@ -24,3 +25,4 @@ def about():
 
 
 app.include_router(todos_router)
+app.include_router(auth_router)
