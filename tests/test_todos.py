@@ -3,7 +3,10 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.main import app
 from app.repositories import todo as todo_repository
+from uuid import uuid4
 
+from app.repositories import user as user_repository
+from app.security.password import hash_password
 
 # client = TestClient(app)
 
@@ -18,14 +21,15 @@ def test_health_check(client):
     }
 
 # create todos
-def test_create_todo(client):
+def test_create_todo(client, auth_headers):
     response = client.post(
         "/todos", 
         json = {
 
             "title": "Test todo",
             "description": "Testing FastAPI"
-        }
+        },
+        headers=auth_headers,
     )
 
     assert response.status_code == 201
@@ -37,8 +41,8 @@ def test_create_todo(client):
     assert "id" in data
 
 # get todos
-def test_get_todos(client):
-    response = client.get("/todos")
+def test_get_todos(client, auth_headers):
+    response = client.get("/todos", headers=auth_headers,)
 
     assert response.status_code == 200
 
@@ -46,19 +50,20 @@ def test_get_todos(client):
 
 
 # get todo by id
-def test_get_todo(client):
+def test_get_todo(client, auth_headers):
     create_response = client.post(
         "/todos", 
         json = {
 
             "title": "Todo untuk GET",
             "description": "Testing GET by ID"
-        }
+        },
+        headers=auth_headers,
     )
 
     todo_id = create_response.json()["id"]
 
-    response = client.get(f"/todos/{todo_id}")
+    response = client.get(f"/todos/{todo_id}", headers=auth_headers,)
     assert response.status_code == 200
     data = response.json()
 
@@ -67,8 +72,8 @@ def test_get_todo(client):
 
 
 # test get todo not found
-def test_get_todo_not_found(client):
-    response = client.get("/todos/999999")
+def test_get_todo_not_found(client, auth_headers):
+    response = client.get("/todos/999999", headers=auth_headers,)
 
     assert response.status_code == 404
     assert response.json() == {
@@ -77,14 +82,15 @@ def test_get_todo_not_found(client):
 
 
 # test patch todo
-def test_update_todo(client):
+def test_update_todo(client, auth_headers):
     create_response = client.post(
         "/todos", 
         json = {
 
             "title": "Test lama",
             "description": "Description lama"
-        }
+        },
+        headers=auth_headers,
     )
 
     todo_id = create_response.json()["id"]
@@ -94,7 +100,8 @@ def test_update_todo(client):
         json = {
 
             "completed": True,
-        }
+        },
+        headers=auth_headers,
     )
 
     assert response.status_code == 200
@@ -107,35 +114,37 @@ def test_update_todo(client):
 
 
 # test delete todo
-def test_delete_todo(client):
+def test_delete_todo(client, auth_headers):
     create_response = client.post(
         "/todos", 
         json = {
             "title": "Todo untuk delete",
             "description": "Akan dihapus"
-        }
+        },
+        headers=auth_headers,
     )
 
     todo_id = create_response.json()["id"]
     
     response = client.delete(
         f"/todos/{todo_id}"
-    )
+    , headers=auth_headers,)
     assert response.status_code == 204
 
     get_response = client.get(
         f"/todos/{todo_id}"
-    )
+    , headers=auth_headers,)
     assert get_response.status_code == 404
     
 
 # test update todo not found
-def test_update_todo_not_found(client):
+def test_update_todo_not_found(client, auth_headers):
     response = client.patch(
         "/todos/999999",
         json={
             "completed": True
-        }
+        },
+        headers=auth_headers,
     )
 
     assert response.status_code == 404
@@ -144,10 +153,10 @@ def test_update_todo_not_found(client):
     }
 
 # test delete todo not found
-def test_delete_todo_not_found(client):
+def test_delete_todo_not_found(client, auth_headers):
     response = client.delete(
         "/todos/999999"
-    )
+    , headers=auth_headers,)
 
     assert response.status_code == 404
     assert response.json() == {
@@ -155,44 +164,47 @@ def test_delete_todo_not_found(client):
     }
 
 # create todo without title
-def test_create_todo_missing_title(client):
+def test_create_todo_missing_title(client, auth_headers):
     response = client.post(
         "/todos",
         json={
             "description":"Todo tanpa title"
-        }
+        },
+        headers=auth_headers,
     )
 
     assert response.status_code == 422
 
 # create todo without description
-def test_create_todo_missing_title(client):
+def test_create_todo_missing_description(client, auth_headers):
     response = client.post(
         "/todos",
         json={
             "title":"Todo tanpa description"
-        }
+        },
+        headers=auth_headers,
     )
 
     assert response.status_code == 422
 
 
 # test patch todo empty body
-def test_update_todo_empty_body(client):
+def test_update_todo_empty_body(client, auth_headers):
     create_response = client.post(
         "/todos", 
         json = {
 
             "title": "Todo test",
             "description": "Testing empty patch"
-        }
+        },
+        headers=auth_headers,
     )
 
     todo_id = create_response.json()["id"]
     
     response = client.patch(
         f"/todos/{todo_id}", 
-        json = {}
+        json = {}, headers=auth_headers,
     )
 
     assert response.status_code == 200
@@ -204,14 +216,15 @@ def test_update_todo_empty_body(client):
 
 
 # test patch todo wrong data type
-def test_update_todo_invalid_completed_type(client):
+def test_update_todo_invalid_completed_type(client, auth_headers):
     create_response = client.post(
         "/todos", 
         json = {
 
             "title": "Todo test",
             "description": "Testing validation"
-        }
+        },
+        headers=auth_headers,
     )
 
     todo_id = create_response.json()["id"]
@@ -220,61 +233,72 @@ def test_update_todo_invalid_completed_type(client):
         f"/todos/{todo_id}", 
         json = {
             "completed":"not-a-boolean"
-        }
+        },
+        headers=auth_headers,
     )
 
     assert response.status_code == 422
 
+
+def _create_test_user(db_session):
+    return user_repository.create(
+        db=db_session,
+        email=f"{uuid4().hex}@example.com",
+        password_hash=hash_password("secret123"),
+    )
+
+
+
+
+
 # test create todo rollback
 def test_create_todo_rollback(db_session, monkeypatch):
+    user = _create_test_user(db_session)
+
     def fake_commit():
         raise SQLAlchemyError("Simulated database error")
 
-    monkeypatch.setattr(
-        db_session,
-        "commit",
-        fake_commit
-    )
+    monkeypatch.setattr(db_session, "commit", fake_commit)
 
     try:
         todo_repository.create(
             db=db_session,
-            title = "Rollback Test",
-            description="Testing Rollback"
+            title="Rollback Test",
+            description="Testing Rollback",
+            user_id=user.id,
         )
     except SQLAlchemyError:
         pass
 
     todos = todo_repository.get_all(
-        db_session
+        db=db_session,
+        user_id=user.id,
     )
 
     assert todos == []
 
 # test update todo rollback
 def test_update_todo_rollback(db_session, monkeypatch):
+    user = _create_test_user(db_session)
+
     todo = todo_repository.create(
         db=db_session,
         title="Todo sebelum update",
-        description="Original"
+        description="Original",
+        user_id=user.id,
     )
+    todo_id = todo.id
 
     def fake_commit():
         raise SQLAlchemyError("Simulated database error")
 
-    monkeypatch.setattr(
-        db_session,
-        "commit",
-        fake_commit
-    )
+    monkeypatch.setattr(db_session, "commit", fake_commit)
 
     try:
         todo_repository.update(
             db=db_session,
             todo=todo,
-            update_data={
-                "title": "Title baru"
-            }
+            update_data={"title": "Title baru"},
         )
     except SQLAlchemyError:
         pass
@@ -283,32 +307,34 @@ def test_update_todo_rollback(db_session, monkeypatch):
 
     todo_from_db = todo_repository.get_by_id(
         db=db_session,
-        todo_id=todo.id
+        todo_id=todo_id,
+        user_id=user.id,
     )
 
+    assert todo_from_db is not None
     assert todo_from_db.title == "Todo sebelum update"
 
 # test delete todo rollback
 def test_delete_todo_rollback(db_session, monkeypatch):
+    user = _create_test_user(db_session)
+
     todo = todo_repository.create(
         db=db_session,
         title="Todo yang tidak boleh terhapus",
-        description="Testing rollback"
+        description="Testing rollback",
+        user_id=user.id,
     )
+    todo_id = todo.id
 
     def fake_commit():
         raise SQLAlchemyError("Simulated database error")
 
-    monkeypatch.setattr(
-        db_session,
-        "commit",
-        fake_commit
-    )
+    monkeypatch.setattr(db_session, "commit", fake_commit)
 
     try:
         todo_repository.delete(
             db=db_session,
-            todo=todo
+            todo=todo,
         )
     except SQLAlchemyError:
         pass
@@ -317,7 +343,8 @@ def test_delete_todo_rollback(db_session, monkeypatch):
 
     todo_from_db = todo_repository.get_by_id(
         db=db_session,
-        todo_id=todo.id
+        todo_id=todo_id,
+        user_id=user.id,
     )
 
     assert todo_from_db is not None
