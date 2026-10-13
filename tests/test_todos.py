@@ -541,3 +541,37 @@ def test_user_cannot_delete_other_users_todo(client, auth_headers):
     )
     assert verify_response.status_code == 200
     assert verify_response.json()["title"] == "Todo Milik B"
+
+
+def test_get_todos_without_toker(client):
+    response = client.get("/todos")
+    assert response.status_code == 401
+
+
+def test_create_todo_without_token(client):
+    response = client.post(
+        "/todos",
+        json={
+            "title": "Todo tanpa autentikasi",
+            "description": "Seharusnya ditolak",
+        },
+    )
+    assert response.status_code == 401
+
+
+def test_get_todo_without_token(client):
+    response = client.get("/todos/1")
+    assert response.status_code == 401
+
+
+def test_update_todo_without_token(client):
+    response = client.patch(
+        "/todos/1",
+        json={"title": "Perubahan tanpa token"},
+    )
+    assert response.status_code == 401
+
+
+def test_delete_todo_without_token(client):
+    response = client.delete("/todos/1")
+    assert response.status_code == 401
