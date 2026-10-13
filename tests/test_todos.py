@@ -694,3 +694,40 @@ def test_update_todo_rejects_unsupported_field(db_session):
 
     assert todo_from_db is not None
     assert todo_from_db.user_id == original_user_id
+
+
+
+
+def test_database_error_returns_safe_response(
+    client,
+    auth_headers,
+    monkeypatch,
+):
+    from sqlalchemy.exc import SQLAlchemyError
+    from app.services import todo as todo_service
+
+    def fake_get_todos(db, user_id):
+        raise SQLAlchemyError(
+            "Sensitive internal database information"
+        )
+
+    monkeypatch.setattr(
+        todo_service,
+        "get_todos",
+        fake_get_todos,
+    )
+
+    response = client.get(
+        "/todos",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "detail": "Internal server error"
+    }
+
+    assert (
+        "Sensitive internal database information"
+        not in response.text
+    )
