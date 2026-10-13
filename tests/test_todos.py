@@ -575,3 +575,30 @@ def test_update_todo_without_token(client):
 def test_delete_todo_without_token(client):
     response = client.delete("/todos/1")
     assert response.status_code == 401
+
+    
+
+def test_create_todo_blank_title(client, auth_headers):
+    response = client.post(
+        "/todos",
+        json={
+            "title": "   ",
+            "description": "Deskripsi valid",
+        },
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_todo_title_too_long(client, auth_headers):
+    response = client.post(
+        "/todos",
+        json={
+            "title": "A" * 201,
+            "description": "Deskripsi valid",
+        },
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 422
