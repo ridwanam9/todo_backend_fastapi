@@ -350,3 +350,62 @@ def test_delete_todo_rollback(db_session, monkeypatch):
     assert todo_from_db is not None
     assert todo_from_db.title == "Todo yang tidak boleh terhapus"
 
+
+
+def test_user_cannot_see_other_users_todos(client, auth_headers):
+    # User A membuat Todo
+    response_a = client.post(
+        "/todos",
+        json={
+            "title": "Todo User A",
+            "description": "Data milik User A",
+        },
+        headers=auth_headers,
+    )
+    assert response_a.status_code == 201
+
+    # Buat User B
+    from uuid import uuid4
+
+    email_b = f"{uuid4().hex}@example.com"
+    password_b = "secret123"
+
+    register_response = client.post(
+        "/auth/register",
+        json={"email": email_b, "password": password_b},
+    )
+    assert register_response.status_code == 201
+
+    login_response = client.post(
+        "/auth/login",
+        json={"email": email_b, "password": password_b},
+    )
+    assert login_response.status_code == 200
+
+    token_b = login_response.json()["access_token"]
+    headers_b = {"Authorization": f"Bearer {token_b}"}
+
+    # User B membuat Todo miliknya
+    response_b = client.post(
+        "/todos",
+        json={
+            "title": "Todo User B",
+            "description": "Data milik User B",
+        },
+        headers=headers_b,
+    )
+    assert response_b.status_code == 201
+
+    # User A hanya boleh melihat Todo miliknya
+    todos_response_a = client.get(
+        "/todos",
+        headers=auth_headers,
+    )
+    assert todos_response_a.status_code == 200
+
+    todos_a = todos_response_a.json()
+    titles_a = [todo["title"] for todo in todos_a]
+
+    assert "Todo User A" in titles_a
+    assert "Todo User B" not in titles_a
+
