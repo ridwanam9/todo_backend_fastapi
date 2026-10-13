@@ -576,7 +576,7 @@ def test_delete_todo_without_token(client):
     response = client.delete("/todos/1")
     assert response.status_code == 401
 
-    
+
 
 def test_create_todo_blank_title(client, auth_headers):
     response = client.post(
@@ -602,3 +602,51 @@ def test_create_todo_title_too_long(client, auth_headers):
     )
 
     assert response.status_code == 422
+
+def test_update_todo_title_null_rejected(client, auth_headers):
+    create_response = client.post(
+        "/todos",
+        json={
+            "title": "Todo asli",
+            "description": "Deskripsi asli",
+        },
+        headers=auth_headers,
+    )
+    assert create_response.status_code == 201
+
+    todo_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/todos/{todo_id}",
+        json={"title": None},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 422
+
+
+def test_update_todo_omitted_fields_unchanged(client, auth_headers):
+    create_response = client.post(
+        "/todos",
+        json={
+            "title": "Todo asli",
+            "description": "Deskripsi asli",
+        },
+        headers=auth_headers,
+    )
+    assert create_response.status_code == 201
+
+    todo_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/todos/{todo_id}",
+        json={"completed": True},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["title"] == "Todo asli"
+    assert data["description"] == "Deskripsi asli"
+    assert data["completed"] is True
