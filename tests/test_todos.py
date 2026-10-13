@@ -409,3 +409,135 @@ def test_user_cannot_see_other_users_todos(client, auth_headers):
     assert "Todo User A" in titles_a
     assert "Todo User B" not in titles_a
 
+
+
+def test_user_cannot_access_other_users_todo(client, auth_headers):
+    from uuid import uuid4
+
+    # Buat User B
+    email_b = f"{uuid4().hex}@example.com"
+    password_b = "secret123"
+
+    client.post(
+        "/auth/register",
+        json={"email": email_b, "password": password_b},
+    )
+    login_response = client.post(
+        "/auth/login",
+        json={"email": email_b, "password": password_b},
+    )
+    token_b = login_response.json()["access_token"]
+    headers_b = {"Authorization": f"Bearer {token_b}"}
+
+    # User B membuat Todo
+    create_response = client.post(
+        "/todos",
+        json={
+            "title": "Todo Rahasia B",
+            "description": "Tidak boleh diakses User A",
+        },
+        headers=headers_b,
+    )
+    assert create_response.status_code == 201
+    todo_id = create_response.json()["id"]
+
+    # User A mencoba membaca Todo milik B
+    response = client.get(
+        f"/todos/{todo_id}",
+        headers=auth_headers,
+    )
+    assert response.status_code == 404
+
+
+def test_user_cannot_update_other_users_todo(client, auth_headers):
+    from uuid import uuid4
+
+    email_b = f"{uuid4().hex}@example.com"
+    password_b = "secret123"
+
+    client.post(
+        "/auth/register",
+        json={"email": email_b, "password": password_b},
+    )
+    login_response = client.post(
+        "/auth/login",
+        json={"email": email_b, "password": password_b},
+    )
+    headers_b = {
+        "Authorization": f"Bearer {login_response.json()['access_token']}"
+    }
+
+    create_response = client.post(
+        "/todos",
+        json={
+            "title": "Todo Asli B",
+            "description": "Deskripsi asli",
+        },
+        headers=headers_b,
+    )
+    assert create_response.status_code == 201
+    todo_id = create_response.json()["id"]
+
+    # User A mencoba mengubah Todo milik B
+    response = client.patch(
+        f"/todos/{todo_id}",
+        json={
+            "title": "Diubah oleh A",
+            "description": "Perubahan tidak sah",
+        },
+        headers=auth_headers,
+    )
+    assert response.status_code == 404
+
+    # Pastikan data B tetap tidak berubah
+    verify_response = client.get(
+        f"/todos/{todo_id}",
+        headers=headers_b,
+    )
+    assert verify_response.status_code == 200
+    assert verify_response.json()["title"] == "Todo Asli B"
+
+
+def test_user_cannot_delete_other_users_todo(client, auth_headers):
+    from uuid import uuid4
+
+    email_b = f"{uuid4().hex}@example.com"
+    password_b = "secret123"
+
+    client.post(
+        "/auth/register",
+        json={"email": email_b, "password": password_b},
+    )
+    login_response = client.post(
+        "/auth/login",
+        json={"email": email_b, "password": password_b},
+    )
+    headers_b = {
+        "Authorization": f"Bearer {login_response.json()['access_token']}"
+    }
+
+    create_response = client.post(
+        "/todos",
+        json={
+            "title": "Todo Milik B",
+            "description": "Harus tetap ada",
+        },
+        headers=headers_b,
+    )
+    assert create_response.status_code == 201
+    todo_id = create_response.json()["id"]
+
+    # User A mencoba menghapus Todo milik B
+    response = client.delete(
+        f"/todos/{todo_id}",
+        headers=auth_headers,
+    )
+    assert response.status_code == 404
+
+    # Pastikan Todo B masih ada
+    verify_response = client.get(
+        f"/todos/{todo_id}",
+        headers=headers_b,
+    )
+    assert verify_response.status_code == 200
+    assert verify_response.json()["title"] == "Todo Milik B"
