@@ -41,7 +41,16 @@ def create(
         raise
 
 
+
 def update(db: Session, todo: Todo, update_data: dict):
+    allowed_fields = {"title", "description", "completed"}
+
+    invalid_fields = set(update_data) - allowed_fields
+    if invalid_fields:
+        raise ValueError(
+            f"Unsupported update fields: {', '.join(sorted(invalid_fields))}"
+        )
+
     try:
         for field, value in update_data.items():
             setattr(todo, field, value)
@@ -52,6 +61,7 @@ def update(db: Session, todo: Todo, update_data: dict):
     except SQLAlchemyError:
         db.rollback()
         raise
+
 
 
 def delete(db: Session, todo: Todo):

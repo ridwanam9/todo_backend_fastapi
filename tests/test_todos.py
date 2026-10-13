@@ -650,3 +650,47 @@ def test_update_todo_omitted_fields_unchanged(client, auth_headers):
     assert data["title"] == "Todo asli"
     assert data["description"] == "Deskripsi asli"
     assert data["completed"] is True
+
+
+def test_update_todo_rejects_unsupported_field(db_session):
+    from uuid import uuid4
+
+    from app.repositories import todo as todo_repository
+    from app.repositories import user as user_repository
+    from app.security.password import hash_password
+
+    user = user_repository.create(
+        db=db_session,
+        email=f"{uuid4().hex}@example.com",
+        password_hash=hash_password("secret123"),
+    )
+
+    todo = todo_repository.create(
+        db=db_session,
+        title="Todo asli",
+        description="Deskripsi asli",
+        user_id=user.id,
+    )
+
+    original_user_id = todo.user_id
+
+    try:
+        todo_repository.update(
+            db=db_session,
+            todo=todo,
+            update_data={"user_id": user.id + 999},
+        )
+        assert False, "Expected ValueError for unsupported field"
+    except ValueError:
+        pass
+
+    db_session.rollback()
+
+    todo_from_db = todo_repository.get_by_id(
+        db=db_session,
+        todo_id=todo.id,
+        user_id=original_user_id,
+    )
+
+    assert todo_from_db is not None
+    assert todo_from_db.user_id == original_user_id
