@@ -37,10 +37,14 @@ def get_current_user(
         )
 
         subject = payload.get("sub")
-        if subject is None:
+
+        if not isinstance(subject, str) or not subject.isdecimal():
             raise unauthorized
 
         user_id = int(subject)
+
+        if user_id <= 0:
+            raise unauthorized
 
     except (InvalidTokenError, ValueError):
         raise unauthorized

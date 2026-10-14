@@ -1,4 +1,18 @@
-.venv
+# Python
+.venv/
+venv/
 __pycache__/
-# app\__pycache__
+*.py[cod]
+
+# Environment variables and secrets
 .env
+.env.*
+!.env.example
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
